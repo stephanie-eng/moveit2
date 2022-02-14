@@ -123,7 +123,8 @@ bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajecto
   double duration_extension_factor = 1;
   while ((duration_extension_factor < MAX_DURATION_EXTENSION_FACTOR) && !smoothing_complete)
   {
-    for (size_t waypoint_idx = 0; waypoint_idx < num_waypoints - 1; ++waypoint_idx)
+    // The final waypoint will not be modified so that the final robot position is exact.
+    for (size_t waypoint_idx = 0; waypoint_idx < num_waypoints - 2; ++waypoint_idx)
     {
       moveit::core::RobotStatePtr next_waypoint = trajectory.getWayPointPtr(waypoint_idx + 1);
 
