@@ -59,6 +59,9 @@ bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajecto
                                      const double max_velocity_scaling_factor,
                                      const double max_acceleration_scaling_factor)
 {
+  // Cache the trajectory in case we need to reset it
+  robot_trajectory::RobotTrajectory original_trajectory = trajectory;
+
   const moveit::core::JointModelGroup* group = trajectory.getGroup();
   if (!group)
   {
@@ -177,7 +180,6 @@ bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajecto
 
     // If ruckig failed, the duration of the seed trajectory likely wasn't long enough.
     // Try duration extension several times.
-    // TODO: see issue 767.  (https://github.com/ros-planning/moveit2/issues/767)
     if (ruckig_result == ruckig::Result::Working)
     {
       smoothing_complete = true;
@@ -188,10 +190,12 @@ bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajecto
       // jerk is taken into account. Extend the duration and try again.
       initializeRuckigState(ruckig_input, ruckig_output, *trajectory.getFirstWayPointPtr(), num_dof, idx);
       duration_extension_factor *= DURATION_EXTENSION_FRACTION;
+      // Reset the trajectory
+      trajectory = robot_trajectory::RobotTrajectory(original_trajectory, true /* deep copy */);
       for (size_t waypoint_idx = 1; waypoint_idx < num_waypoints; ++waypoint_idx)
       {
         trajectory.setWayPointDurationFromPrevious(
-            waypoint_idx, DURATION_EXTENSION_FRACTION * trajectory.getWayPointDurationFromPrevious(waypoint_idx));
+            waypoint_idx, duration_extension_factor * trajectory.getWayPointDurationFromPrevious(waypoint_idx));
         // TODO(andyz): re-calculate waypoint velocity and acceleration here?
       }
 
