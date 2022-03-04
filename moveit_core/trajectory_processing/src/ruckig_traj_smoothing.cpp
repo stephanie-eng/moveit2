@@ -57,7 +57,8 @@ constexpr double MINIMUM_VELOCITY_SEARCH_MAGNITUDE = 0.01;  // rad/s. Stop searc
 
 bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajectory,
                                      const double max_velocity_scaling_factor,
-                                     const double max_acceleration_scaling_factor)
+                                     const double max_acceleration_scaling_factor,
+                                     const double max_jerk_scaling_factor)
 {
   // Cache the trajectory in case we need to reset it
   robot_trajectory::RobotTrajectory original_trajectory = trajectory;
@@ -98,7 +99,7 @@ bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajecto
   for (size_t i = 0; i < num_dof; ++i)
   {
     // TODO(andyz): read this from the joint group if/when jerk limits are added to the JointModel
-    ruckig_input.max_jerk.at(i) = DEFAULT_MAX_JERK;
+    // ruckig_input.max_jerk.at(i) = DEFAULT_MAX_JERK;
 
     const moveit::core::VariableBounds& bounds = rmodel.getVariableBounds(vars.at(i));
 
@@ -118,6 +119,14 @@ bool RuckigSmoothing::applySmoothing(robot_trajectory::RobotTrajectory& trajecto
     else
     {
       ruckig_input.max_acceleration.at(i) = max_acceleration_scaling_factor * DEFAULT_MAX_ACCELERATION;
+    }
+    if (bounds.jerk_bounded_)
+    {
+      ruckig_input.max_jerk.at(i) = max_jerk_scaling_factor * bounds.max_jerk_;
+    }
+    else
+    {
+      ruckig_input.max_jerk.at(i) = max_jerk_scaling_factor * DEFAULT_MAX_JERK;
     }
   }
 
