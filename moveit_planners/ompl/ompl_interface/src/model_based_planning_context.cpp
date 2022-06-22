@@ -143,7 +143,10 @@ void ompl_interface::ModelBasedPlanningContext::configure(const rclcpp::Node::Sh
 
   useConfig();
   if (ompl_simple_setup_->getGoal())
+  {
+    ompl_simple_setup_->print();
     ompl_simple_setup_->setup();
+  }
 }
 
 void ompl_interface::ModelBasedPlanningContext::setProjectionEvaluator(const std::string& peval)
