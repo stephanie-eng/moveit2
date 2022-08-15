@@ -294,7 +294,7 @@ class MoveItConfigsBuilder(ParameterBuilder):
             controller_pattern = re.compile("^(.*)_controllers.yaml$")
             possible_names = get_pattern_matches(config_folder, controller_pattern)
             if not possible_names:
-                # Warn the user instead of raising exception
+                # Warn the user instead of raising exceptionpara
                 logging.warning(
                     "\x1b[33;20mtrajectory_execution: `Parameter file_path is undefined "
                     f"and no matches for {config_folder}/*_controllers.yaml\x1b[0m"
@@ -349,7 +349,7 @@ class MoveItConfigsBuilder(ParameterBuilder):
         return self
 
     def sensors_3d(self, file_path: Optional[str] = None):
-        """Load sensors_3d paramerss.
+        """Load sensors_3d parameters.
 
         :param file_path: Absolute or relative path to the sensors_3d yaml file (w.r.t. robot_name_moveit_config).
         :return: Instance of MoveItConfigsBuilder with robot_description_planning loaded.
