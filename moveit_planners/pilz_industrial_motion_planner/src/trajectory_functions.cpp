@@ -32,6 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
+#include <moveit/robot_model/joint_model.hpp>
 #include <pilz_industrial_motion_planner/trajectory_functions.hpp>
 
 #include <moveit/planning_scene/planning_scene.hpp>
@@ -96,7 +97,12 @@ bool pilz_industrial_motion_planner::computePoseIK(const planning_scene::Plannin
     // copy the solution
     for (const auto& joint_name : jmg->getActiveJointModelNames())
     {
-      solution[joint_name] = rstate.getVariablePosition(joint_name);
+      // iterate through variable names (will be multiple for multi-dof joints)
+      const auto variable_names = jmg->getJointModel(joint_name)->getVariableNames();
+      for (const auto& name : variable_names)
+      {
+        solution[name] = rstate.getVariablePosition(name);
+      }
     }
     return true;
   }

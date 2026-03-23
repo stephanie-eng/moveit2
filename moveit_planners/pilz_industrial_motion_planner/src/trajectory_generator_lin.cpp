@@ -32,6 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
+#include <cstddef>
 #include <pilz_industrial_motion_planner/trajectory_generator_lin.hpp>
 
 #include <pilz_industrial_motion_planner/tip_frame_getter.hpp>
@@ -39,6 +40,7 @@
 #include <cassert>
 #include <sstream>
 #include <time.h>
+#include <numeric>
 #include <moveit/robot_state/conversions.hpp>
 #include <kdl/path_line.hpp>
 #include <kdl/trajectory_segment.hpp>
@@ -86,14 +88,17 @@ void TrajectoryGeneratorLIN::extractMotionPlanInfo(const planning_scene::Plannin
   {
     info.link_name = getSolverTipFrame(robot_model_->getJointModelGroup(req.group_name));
 
-    if (req.goal_constraints.front().joint_constraints.size() !=
-        robot_model_->getJointModelGroup(req.group_name)->getActiveJointModelNames().size())
+    auto active_joints = robot_model_->getJointModelGroup(req.group_name)->getActiveJointModels();
+    std::size_t num_vars =
+        std::accumulate(active_joints.begin(), active_joints.end(), std::size_t{ 0 },
+                        [](std::size_t sum, const auto& joint) { return sum + joint->getVariableCount(); });
+    if (req.goal_constraints.front().joint_constraints.size() != num_vars)
     {
       std::ostringstream os;
-      os << "Number of joints in goal does not match number of joints of group "
+      os << "Number of joints in goal does not match number of variables of group "
             "(Number joints goal: "
-         << req.goal_constraints.front().joint_constraints.size() << " | Number of joints of group: "
-         << robot_model_->getJointModelGroup(req.group_name)->getActiveJointModelNames().size() << ')';
+         << req.goal_constraints.front().joint_constraints.size() << " | Number of variables of group: " << num_vars
+         << ')';
       throw JointNumberMismatch(os.str());
     }
 

@@ -158,18 +158,28 @@ void TrajectoryGenerator::checkJointGoalConstraint(const moveit_msgs::msg::Const
   for (const auto& joint_constraint : constraint.joint_constraints)
   {
     const std::string& curr_joint_name{ joint_constraint.joint_name };
+    std::string joint_name_no_suffix{ curr_joint_name };
+    for (const std::string& suffix : { std::string("/x"), std::string("/y"), std::string("/theta") })
+    {
+      if (curr_joint_name.size() >= suffix.size() &&
+          curr_joint_name.compare(curr_joint_name.size() - suffix.size(), suffix.size(), suffix) == 0)
+      {
+        joint_name_no_suffix = curr_joint_name.substr(0, curr_joint_name.size() - suffix.size());
+        break;
+      }
+    }
 
-    if (!robot_model_->getJointModelGroup(group_name)->hasJointModel(curr_joint_name))
+    if (!robot_model_->getJointModelGroup(group_name)->hasJointModel(joint_name_no_suffix))
     {
       std::ostringstream os;
-      os << "Joint \"" << curr_joint_name << "\" does not belong to group \"" << group_name << '\"';
+      os << "Joint \"" << joint_name_no_suffix << "\" does not belong to group \"" << group_name << '\"';
       throw JointConstraintDoesNotBelongToGroup(os.str());
     }
 
     if (!planner_limits_.getJointLimitContainer().verifyPositionLimit(curr_joint_name, joint_constraint.position))
     {
       std::ostringstream os;
-      os << "Joint \"" << curr_joint_name << "\" violates joint limits in goal constraints";
+      os << "Joint \"" << joint_name_no_suffix << "\" violates joint limits in goal constraints";
       throw JointsOfGoalOutOfRange(os.str());
     }
   }
@@ -197,9 +207,8 @@ void TrajectoryGenerator::checkCartesianGoalConstraint(const moveit_msgs::msg::C
   if (pos_constraint.link_name != ori_constraint.link_name)
   {
     std::ostringstream os;
-    os << "Position and orientation constraint name do not match"
-       << "(Position constraint name: \"" << pos_constraint.link_name << "\" | Orientation constraint name: \""
-       << ori_constraint.link_name << "\")";
+    os << "Position and orientation constraint name do not match" << "(Position constraint name: \""
+       << pos_constraint.link_name << "\" | Orientation constraint name: \"" << ori_constraint.link_name << "\")";
     throw PositionOrientationConstraintNameMismatch(os.str());
   }
 
