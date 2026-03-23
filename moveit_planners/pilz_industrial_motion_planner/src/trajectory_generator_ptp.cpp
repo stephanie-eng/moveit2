@@ -44,6 +44,7 @@
 
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <vector>
 
 namespace pilz_industrial_motion_planner
 {
@@ -71,11 +72,18 @@ TrajectoryGeneratorPTP::TrajectoryGeneratorPTP(const moveit::core::RobotModelCon
     throw TrajectoryGeneratorInvalidLimitsException("invalid group: " + group_name);
 
   const auto& active_joints = jmg->getActiveJointModelNames();
+  std::vector<std::string> active_variables;
+  for (const auto& joint_name : active_joints)
+  {
+    const auto& joint_model = robot_model->getJointModel(joint_name);
+    const auto& variable_names = joint_model->getVariableNames();
+    active_variables.insert(active_variables.end(), variable_names.begin(), variable_names.end());
+  }
 
   // no active joints
   if (!active_joints.empty())
   {
-    most_strict_limit_ = joint_limits_.getCommonLimit(active_joints);
+    most_strict_limit_ = joint_limits_.getCommonLimit(active_variables);
 
     if (!most_strict_limit_.has_velocity_limits)
     {

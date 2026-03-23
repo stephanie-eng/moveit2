@@ -51,7 +51,8 @@ namespace pilz_industrial_motion_planner
  * @brief  Unifies the joint limits from the given joint models with joint
  * limits from the node parameters.
  *
- * Does not support MultiDOF joints.
+ * Supports both single-DOF and multi-DOF joints by operating on
+ * individual variable names rather than whole joint models.
  */
 class JointLimitsAggregator
 {
@@ -83,42 +84,52 @@ public:
 
 protected:
   /**
-   * @brief Update the position limits with the ones from the joint_model.
+   * @brief Update the position limits with the ones from the joint_model
+   * for a specific variable.
    *
-   * If the joint model has no position limit, the value is unchanged.
+   * If the variable has no position limit, the value is unchanged.
    *
    * @param joint_model The joint model
+   * @param variable_name The name of the variable within the joint
    * @param joint_limit The joint_limit to be filled with new values.
    */
-  static void updatePositionLimitFromJointModel(const moveit::core::JointModel* joint_model, JointLimit& joint_limit);
+  static void updatePositionLimitFromJointModel(const moveit::core::JointModel* joint_model,
+                                                const std::string& variable_name, JointLimit& joint_limit);
 
   /**
-   * @brief Update the velocity limit with the one from the joint_model.
+   * @brief Update the velocity limit with the one from the joint_model
+   * for a specific variable.
    *
-   * If the joint model has no velocity limit, the value is unchanged.
+   * If the variable has no velocity limit, the value is unchanged.
    *
    * @param joint_model The joint model
+   * @param variable_name The name of the variable within the joint
    * @param joint_limit The joint_limit to be filled with new values.
    */
-  static void updateVelocityLimitFromJointModel(const moveit::core::JointModel* joint_model, JointLimit& joint_limit);
+  static void updateVelocityLimitFromJointModel(const moveit::core::JointModel* joint_model,
+                                                const std::string& variable_name, JointLimit& joint_limit);
 
   /**
    * @brief Checks if the position limits from the given joint_limit are
-   * stricter than the limits of the joint_model.
+   * stricter than the limits of the joint_model for a specific variable.
    * Throws AggregationBoundsViolationException on violation
    * @param joint_model The joint_model
+   * @param variable_name The name of the variable within the joint
    * @param joint_limit The joint_limit
    */
-  static void checkPositionBoundsThrowing(const moveit::core::JointModel* joint_model, const JointLimit& joint_limit);
+  static void checkPositionBoundsThrowing(const moveit::core::JointModel* joint_model, const std::string& variable_name,
+                                          const JointLimit& joint_limit);
 
   /**
    * @brief Checks if the velocity limit from the given joint_limit are stricter
-   * than the limit of the joint_model.
+   * than the limit of the joint_model for a specific variable.
    * Throws AggregationBoundsViolationException on violation
    * @param joint_model The joint_model
+   * @param variable_name The name of the variable within the joint
    * @param joint_limit The joint_limit
    */
-  static void checkVelocityBoundsThrowing(const moveit::core::JointModel* joint_model, const JointLimit& joint_limit);
+  static void checkVelocityBoundsThrowing(const moveit::core::JointModel* joint_model, const std::string& variable_name,
+                                          const JointLimit& joint_limit);
 };
 
 /**

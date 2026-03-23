@@ -60,136 +60,107 @@ pilz_industrial_motion_planner::JointLimitsAggregator::getAggregatedLimits(
   // Iterate over all joint models and generate the map
   for (auto joint_model : joint_models)
   {
-    pilz_industrial_motion_planner::JointLimit joint_limit;
-
-    // NOTE: declareParameters fails (=returns false) if the parameters have already been declared.
-    // The function should be checked in the if condition below when we disable
-    // 'NodeOptions::automatically_declare_parameters_from_overrides(true)'
-    joint_limits_interface::declareParameters(joint_model->getName(), param_namespace, node);
-
-    // If there is something defined for the joint in the node parameters
-    if (joint_limits_interface::getJointLimits(joint_model->getName(), param_namespace, node, joint_limit))
+    for (const auto& variable_name : joint_model->getVariableNames())
     {
-      if (joint_limit.has_position_limits)
+      pilz_industrial_motion_planner::JointLimit joint_limit;
+
+      // NOTE: declareParameters fails (=returns false) if the parameters have already been declared.
+      // The function should be checked in the if condition below when we disable
+      // 'NodeOptions::automatically_declare_parameters_from_overrides(true)'
+      joint_limits_interface::declareParameters(variable_name, param_namespace, node);
+
+      // If there is something defined for the joint in the node parameters
+      if (joint_limits_interface::getJointLimits(variable_name, param_namespace, node, joint_limit))
       {
-        checkPositionBoundsThrowing(joint_model, joint_limit);
+        if (joint_limit.has_position_limits)
+        {
+          checkPositionBoundsThrowing(joint_model, variable_name, joint_limit);
+        }
+        else
+        {
+          updatePositionLimitFromJointModel(joint_model, variable_name, joint_limit);
+        }
+
+        if (joint_limit.has_velocity_limits)
+        {
+          checkVelocityBoundsThrowing(joint_model, variable_name, joint_limit);
+        }
+        else
+        {
+          updateVelocityLimitFromJointModel(joint_model, variable_name, joint_limit);
+        }
       }
       else
       {
-        updatePositionLimitFromJointModel(joint_model, joint_limit);
+        // If there is nothing defined for this joint in the node parameters just
+        // update the values by the values of
+        // the urdf
+
+        updatePositionLimitFromJointModel(joint_model, variable_name, joint_limit);
+        updateVelocityLimitFromJointModel(joint_model, variable_name, joint_limit);
       }
 
-      if (joint_limit.has_velocity_limits)
+      // Update max_deceleration if no max_acceleration has been set
+      if (joint_limit.has_acceleration_limits && !joint_limit.has_deceleration_limits)
       {
-        checkVelocityBoundsThrowing(joint_model, joint_limit);
+        joint_limit.max_deceleration = -joint_limit.max_acceleration;
+        joint_limit.has_deceleration_limits = true;
       }
-      else
-      {
-        updateVelocityLimitFromJointModel(joint_model, joint_limit);
-      }
-    }
-    else
-    {
-      // If there is nothing defined for this joint in the node parameters just
-      // update the values by the values of
-      // the urdf
 
-      updatePositionLimitFromJointModel(joint_model, joint_limit);
-      updateVelocityLimitFromJointModel(joint_model, joint_limit);
+      // Insert the joint limit into the map
+      container.addLimit(variable_name, joint_limit);
     }
-
-    // Update max_deceleration if no max_acceleration has been set
-    if (joint_limit.has_acceleration_limits && !joint_limit.has_deceleration_limits)
-    {
-      joint_limit.max_deceleration = -joint_limit.max_acceleration;
-      joint_limit.has_deceleration_limits = true;
-    }
-
-    // Insert the joint limit into the map
-    container.addLimit(joint_model->getName(), joint_limit);
   }
 
   return container;
 }
 
 void pilz_industrial_motion_planner::JointLimitsAggregator::updatePositionLimitFromJointModel(
-    const moveit::core::JointModel* joint_model, JointLimit& joint_limit)
+    const moveit::core::JointModel* joint_model, const std::string& variable_name, JointLimit& joint_limit)
 {
-  switch (joint_model->getVariableBounds().size())
-  {
-    // LCOV_EXCL_START
-    case 0:
-      RCLCPP_WARN_STREAM(getLogger(), "no bounds set for joint " << joint_model->getName());
-      break;
-    // LCOV_EXCL_STOP
-    case 1:
-      joint_limit.has_position_limits = joint_model->getVariableBounds()[0].position_bounded_;
-      joint_limit.min_position = joint_model->getVariableBounds()[0].min_position_;
-      joint_limit.max_position = joint_model->getVariableBounds()[0].max_position_;
-      break;
-    // LCOV_EXCL_START
-    default:
-      RCLCPP_WARN_STREAM(getLogger(), "Multi-DOF-Joint '" << joint_model->getName() << "' not supported.");
-      joint_limit.has_position_limits = true;
-      joint_limit.min_position = 0;
-      joint_limit.max_position = 0;
-      break;
-      // LCOV_EXCL_STOP
-  }
+  const auto& bounds = joint_model->getVariableBounds(variable_name);
+  joint_limit.has_position_limits = bounds.position_bounded_;
+  joint_limit.min_position = bounds.min_position_;
+  joint_limit.max_position = bounds.max_position_;
 
-  RCLCPP_DEBUG_STREAM(getLogger(), "Limit(" << joint_model->getName() << " min:" << joint_limit.min_position
+  RCLCPP_DEBUG_STREAM(getLogger(), "Limit(" << variable_name << " min:" << joint_limit.min_position
                                             << " max:" << joint_limit.max_position);
 }
 
 void pilz_industrial_motion_planner::JointLimitsAggregator::updateVelocityLimitFromJointModel(
-    const moveit::core::JointModel* joint_model, JointLimit& joint_limit)
+    const moveit::core::JointModel* joint_model, const std::string& variable_name, JointLimit& joint_limit)
 {
-  switch (joint_model->getVariableBounds().size())
-  {
-    // LCOV_EXCL_START
-    case 0:
-      RCLCPP_WARN_STREAM(getLogger(), "no bounds set for joint " << joint_model->getName());
-      break;
-    // LCOV_EXCL_STOP
-    case 1:
-      joint_limit.has_velocity_limits = joint_model->getVariableBounds()[0].velocity_bounded_;
-      joint_limit.max_velocity = joint_model->getVariableBounds()[0].max_velocity_;
-      break;
-    // LCOV_EXCL_START
-    default:
-      RCLCPP_WARN_STREAM(getLogger(), "Multi-DOF-Joint '" << joint_model->getName() << "' not supported.");
-      joint_limit.has_velocity_limits = true;
-      joint_limit.max_velocity = 0;
-      break;
-      // LCOV_EXCL_STOP
-  }
+  const auto& bounds = joint_model->getVariableBounds(variable_name);
+  joint_limit.has_velocity_limits = bounds.velocity_bounded_;
+  joint_limit.max_velocity = bounds.max_velocity_;
 }
 
 void pilz_industrial_motion_planner::JointLimitsAggregator::checkPositionBoundsThrowing(
-    const moveit::core::JointModel* joint_model, const JointLimit& joint_limit)
+    const moveit::core::JointModel* joint_model, const std::string& variable_name, const JointLimit& joint_limit)
 {
+  const auto& bounds = joint_model->getVariableBounds(variable_name);
+
   // Check min position
-  if (!joint_model->satisfiesPositionBounds(&joint_limit.min_position))
+  if (bounds.position_bounded_ && joint_limit.min_position < bounds.min_position_)
   {
-    throw AggregationBoundsViolationException("min_position of " + joint_model->getName() +
-                                              " violates min limit from URDF");
+    throw AggregationBoundsViolationException("min_position of " + variable_name + " violates min limit from URDF");
   }
 
   // Check max position
-  if (!joint_model->satisfiesPositionBounds(&joint_limit.max_position))
+  if (bounds.position_bounded_ && joint_limit.max_position > bounds.max_position_)
   {
-    throw AggregationBoundsViolationException("max_position of " + joint_model->getName() +
-                                              " violates max limit from URDF");
+    throw AggregationBoundsViolationException("max_position of " + variable_name + " violates max limit from URDF");
   }
 }
 
 void pilz_industrial_motion_planner::JointLimitsAggregator::checkVelocityBoundsThrowing(
-    const moveit::core::JointModel* joint_model, const JointLimit& joint_limit)
+    const moveit::core::JointModel* joint_model, const std::string& variable_name, const JointLimit& joint_limit)
 {
-  // Check min position
-  if (!joint_model->satisfiesVelocityBounds(&joint_limit.max_velocity))
+  const auto& bounds = joint_model->getVariableBounds(variable_name);
+
+  // Check velocity
+  if (bounds.velocity_bounded_ && joint_limit.max_velocity > bounds.max_velocity_)
   {
-    throw AggregationBoundsViolationException("max_velocity of " + joint_model->getName() +
-                                              " violates velocity limit from URDF");
+    throw AggregationBoundsViolationException("max_velocity of " + variable_name + " violates velocity limit from URDF");
   }
 }
